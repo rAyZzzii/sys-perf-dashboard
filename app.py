@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, render_template_string
 import psutil
+import time
 
 app = Flask(__name__)
 
@@ -34,6 +35,16 @@ HTML_TEMPLATE = """
                 
                 document.getElementById('net-sent').innerText = (data.net.bytes_sent / 1e6).toFixed(2) + ' MB';
                 document.getElementById('net-recv').innerText = (data.net.bytes_recv / 1e6).toFixed(2) + ' MB';
+                
+                if (data.swap) {
+                    document.getElementById('swap').innerText = data.swap.percent + '%';
+                    document.getElementById('swap-details').innerText = (data.swap.used / 1e9).toFixed(2) + ' GB / ' + (data.swap.total / 1e9).toFixed(2) + ' GB';
+                }
+                if (data.uptime) {
+                    let uptimeHours = Math.floor(data.uptime / 3600);
+                    let uptimeMinutes = Math.floor((data.uptime % 3600) / 60);
+                    document.getElementById('uptime').innerText = uptimeHours + 'h ' + uptimeMinutes + 'm';
+                }
             } catch (err) {
                 console.error("Error fetching stats: ", err);
             }
@@ -65,6 +76,16 @@ HTML_TEMPLATE = """
             <div class="details">Sent: <strong id="net-sent" class="value" style="font-size:1.2rem;">-- MB</strong></div>
             <div class="details">Recv: <strong id="net-recv" class="value" style="font-size:1.2rem;">-- MB</strong></div>
         </div>
+        <div class="card" style="border-left-color: #f9e2af;">
+            <h3>Swap Usage</h3>
+            <div class="value" id="swap">--%</div>
+            <div class="details" id="swap-details">-- GB / -- GB</div>
+        </div>
+        <div class="card" style="border-left-color: #cba6f7;">
+            <h3>Uptime</h3>
+            <div class="value" id="uptime" style="font-size:1.5rem;">--</div>
+            <div class="details">Since last boot</div>
+        </div>
     </div>
 </body>
 </html>
@@ -80,12 +101,16 @@ def stats():
     ram = psutil.virtual_memory()
     disk = psutil.disk_usage('/')
     net = psutil.net_io_counters()
+    swap = psutil.swap_memory()
+    uptime = time.time() - psutil.boot_time()
 
     return jsonify({
         'cpu': cpu,
         'ram': {'total': ram.total, 'used': ram.used, 'percent': ram.percent},
         'disk': {'total': disk.total, 'used': disk.used, 'percent': disk.percent},
-        'net': {'bytes_sent': net.bytes_sent, 'bytes_recv': net.bytes_recv}
+        'net': {'bytes_sent': net.bytes_sent, 'bytes_recv': net.bytes_recv},
+        'swap': {'total': swap.total, 'used': swap.used, 'percent': swap.percent},
+        'uptime': uptime
     })
 
 if __name__ == '__main__':
